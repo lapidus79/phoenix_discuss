@@ -1,11 +1,52 @@
+import {Socket} from "phoenix"
+
+let socket = new Socket("/socket", {params: {token: window.userToken}})
+socket.connect()
+
+const createSocket = (topic_id) => {
+  let channel = socket.channel(`comments:${topic_id}`, {})
+  channel.join()
+    .receive("ok", resp => renderComments(resp))
+    .receive("error", resp => { console.log("Unable to join", resp) })
+
+  channel.on(`comments:${topic_id}:new`, renderComment);
+
+  document.querySelector('button').addEventListener('click', () => {
+    const content = document.querySelector('textarea').value
+    channel.push('comment:add', { content })
+  });
+}
+
+const renderComments = ({comments}) => {
+  const rendered = comments.map(c => commentTemplate(c));
+  document.querySelector('.collection').innerHTML = rendered.join('');
+}
+
+const renderComment = ({comment}) => {
+  const rendered = commentTemplate(comment);
+  document.querySelector('.collection').innerHTML += rendered;
+}
+
+const commentTemplate = (comment) => {
+  let email = 'Anonymous';
+  if (comment.user) {
+    email = comment.user.email;
+  }
+  return `<li class="collection-item">
+    ${comment.content}
+    <div class="secondary-content">
+    ${email}
+    </div>
+  </li>`;
+}
+
+window.createSocket = createSocket
+
 // NOTE: The contents of this file will only be executed if
 // you uncomment its entry in "web/static/js/app.js".
 
 // To use Phoenix channels, the first step is to import Socket
 // and connect at the socket path in "lib/my_app/endpoint.ex":
-import {Socket} from "phoenix"
-
-let socket = new Socket("/socket", {params: {token: window.userToken}})
 
 // When you connect, you'll often need to authenticate the client.
 // For example, imagine you have an authentication plug, `MyAuth`,
@@ -50,13 +91,3 @@ let socket = new Socket("/socket", {params: {token: window.userToken}})
 //
 // Finally, pass the token on connect as below. Or remove it
 // from connect if you don't care about authentication.
-
-socket.connect()
-
-// Now that you are connected, you can join channels with a topic:
-let channel = socket.channel("topic:subtopic", {})
-channel.join()
-  .receive("ok", resp => { console.log("Joined successfully", resp) })
-  .receive("error", resp => { console.log("Unable to join", resp) })
-
-export default socket
